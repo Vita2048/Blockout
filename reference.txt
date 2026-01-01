@@ -1,0 +1,241 @@
+BLOCK OUT - QUICK REFERENCE CARD
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📁 FILES INCLUDED
+─────────────────────────────────────────────────────────────────────────────
+index.html                Main game file (OPEN THIS IN BROWSER)
+game.js                   Complete game implementation (886 lines)
+README.md                 Full documentation and features
+QUICKSTART.md             How to play and tips
+ARCHITECTURE.md           Technical deep-dive
+SUMMARY.md                Project overview
+reference.txt             This file
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎮 QUICK START
+─────────────────────────────────────────────────────────────────────────────
+1. Open index.html in a web browser
+2. Watch blocks fall from the top
+3. Use arrow keys to move left/right
+4. Use Q/W/E to rotate
+5. Press SPACE to drop
+6. Fill complete horizontal layers to score points
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⌨️ KEYBOARD CONTROLS
+─────────────────────────────────────────────────────────────────────────────
+MOVEMENT:
+  Arrow Up (↑)    = Move forward
+  Arrow Down (↓)  = Move backward
+  Arrow Left (←)  = Move left
+  Arrow Right (→) = Move right
+
+ROTATION:
+  Q = Rotate around X-axis (tilt)
+  W = Rotate around Y-axis (spin)
+  E = Rotate around Z-axis (roll)
+
+SPECIAL:
+  Space = Hard drop to bottom
+  P     = Pause / Resume
+  R     = Restart game
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 GAME OBJECTIVE
+─────────────────────────────────────────────────────────────────────────────
+1. Arrange falling blocks to complete horizontal layers
+2. Full layers clear automatically and earn points
+3. Stack blocks without reaching the top
+4. Higher levels = faster speed + more points
+5. Beat your high score
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 SCORING
+─────────────────────────────────────────────────────────────────────────────
+Block Placement:  10 × (block size) × level
+Layer Clear:      100 × (layers cleared)² × level
+
+Examples:
+  4-cube block at level 1   = 40 points
+  1 cleared layer           = 100 points
+  2 cleared layers          = 400 points
+  2 cleared layers at level 5 = 2000 points
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⬆️ DIFFICULTY LEVELS
+─────────────────────────────────────────────────────────────────────────────
+Level  Speed         Fall Time
+  1    0.5/sec       2000 ms  (slowest)
+  2    0.7/sec       1429 ms
+  3    0.9/sec       1111 ms
+  5    1.5/sec        667 ms
+ 10    2.5/sec        400 ms  (very fast)
+
+Level increases every 10 blocks placed.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🧩 BLOCK SHAPES (14 types)
+─────────────────────────────────────────────────────────────────────────────
+4-Cube Blocks:
+  I-pieces       = Lines (4 cubes)
+  O-piece        = 2×2 square
+  T-piece        = T-shape
+  L-pieces       = L and reverse L shapes
+  S/Z-pieces     = Zigzag patterns
+
+5-Cube Blocks:
+  3D L-shape, 3D T-shape, Plus, Stairs, Pyramid
+
+8-Cube Blocks:
+  2×2×2 Cube (largest block)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎨 COLORS
+─────────────────────────────────────────────────────────────────────────────
+Green    = Pit grid
+Cyan     = Block colors (random)
+Magenta  = Block colors (random)
+Yellow   = UI text and points
+Red      = Title text
+Blue     = UI labels
+Orange   = Block colors (random)
+Purple   = Block colors (random)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+💾 HIGH SCORE
+─────────────────────────────────────────────────────────────────────────────
+Your high score is automatically saved in the browser.
+It persists even after closing the browser.
+
+Reset by:
+  1. Clearing browser data/cache, OR
+  2. Editing localStorage in developer console
+
+═══════════════════════════════════════════════════════════════════════════════
+
+💡 TIPS & STRATEGIES
+─────────────────────────────────────────────────────────────────────────────
+1. Plan ahead - blocks fall from the top center
+2. Use rotation creatively to fit odd shapes
+3. Try to clear multiple layers at once for big bonuses
+4. Build up from the sides, fill center last
+5. Higher levels give exponentially more points
+6. Focus on completing layers, not just stacking blocks
+7. Watch the falling speed - it increases with level
+8. Use hard drop (space) when falling is too slow
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔧 CUSTOMIZATION
+─────────────────────────────────────────────────────────────────────────────
+Edit game.js (lines 9-17) to change:
+
+CONFIG = {
+    PIT_WIDTH: 5,          // Change pit width
+    PIT_DEPTH: 5,          // Change pit depth
+    PIT_HEIGHT: 10,        // Change pit height
+    BLOCK_SIZE: 1.0,       // Change block size
+    FALL_SPEED_BASE: 0.5,  // Change base speed
+    LEVEL_UP_BLOCKS: 10,   // Blocks to level up
+    HIGH_SCORE_KEY: 'blockout_highscore'
+};
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🐛 TROUBLESHOOTING
+─────────────────────────────────────────────────────────────────────────────
+Game won't load:
+  → Check internet connection (needs Three.js CDN)
+  → Try different browser
+  → Check browser console (F12) for errors
+
+Can't move blocks:
+  → Click in game area to focus window
+  → Check CAPS LOCK isn't on
+  → Try arrow keys instead of WASD
+
+Game is slow:
+  → Close other browser tabs
+  → Check system load
+  → Try different browser (Chrome usually fastest)
+
+High score disappeared:
+  → Browser data was cleared
+  → Try different browser profile
+  → Check localStorage not disabled
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📱 BROWSER SUPPORT
+─────────────────────────────────────────────────────────────────────────────
+Works in:
+  ✓ Chrome 90+
+  ✓ Firefox 88+
+  ✓ Edge 90+
+  ✓ Safari 14+
+
+Requires:
+  ✓ WebGL support
+  ✓ JavaScript enabled
+  ✓ LocalStorage enabled
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION
+─────────────────────────────────────────────────────────────────────────────
+START HERE:
+  1. QUICKSTART.md       ← Best place to start
+  2. README.md           ← Full features and details
+  3. ARCHITECTURE.md     ← Technical deep-dive
+  4. SUMMARY.md          ← Project overview
+  5. game.js source      ← Well-commented code
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎓 TECHNICAL SPECS
+─────────────────────────────────────────────────────────────────────────────
+Lines of Code:         1,128 total
+  - HTML:              242 lines
+  - JavaScript:        886 lines
+
+Technology:
+  - Three.js r128      (3D graphics)
+  - ES6+ JavaScript    (game logic)
+  - HTML5 Canvas       (rendering)
+  - CSS3               (UI styling)
+  - LocalStorage API   (persistence)
+
+Performance:
+  - Target FPS:        60
+  - Collision:         O(n) grid-based
+  - Memory:            Properly managed
+  - File Size:         ~50 KB
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎉 YOU'RE ALL SET!
+─────────────────────────────────────────────────────────────────────────────
+1. Open index.html in browser
+2. Enjoy playing!
+3. Check QUICKSTART.md for detailed guide
+4. Share and modify as you like!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Questions? See the documentation files:
+  - How to play?          → QUICKSTART.md
+  - Full features?        → README.md
+  - How does it work?     → ARCHITECTURE.md
+  - Project overview?     → SUMMARY.md
+  - Read the code?        → game.js (well-commented)
+
+═══════════════════════════════════════════════════════════════════════════════
