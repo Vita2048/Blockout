@@ -27,11 +27,8 @@ const CONFIG = {
 const BLOCK_SHAPES = {
     L_3D: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [1, 0, 0]],
     T_FLAT: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0]],
-    I_LONG: [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 0, 3]],
     STAIRS: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0]],
     TRIPOD: [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
-    I_VER: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [0, 3, 0]],
-    I_HOR: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]],
 };
 
 const BLOCK_COLORS = [
@@ -46,18 +43,17 @@ const BLOCK_COLORS = [
 // ... COLORS ... (unchanged)
 // Palette extracted from BlockOut screenshot
 const LAYER_COLORS = [
-    0x0000AA, // Deep Blue (Bottom - Layer 0 in reverse logic? Wait. Screenshot shows bottom blue)
-    0x00AA00, // Green
-    0x00AAAA, // Cyan
-    0xAA0000, // Red
-    0xAA00AA, // Magenta/Purple
-    0xAA5500, // Brown
+    0x4CA7A9, // Cyan          (was top, now bottom layer z=0)
+    0x4CA730, // Green
+    0x0000A3, // Deep Blue
     0xAAAAAA, // Light Gray
-    0x555555, // Dark Gray
-    0x5555FF, // Lighter Blue
-    0x55FF55, // Lighter Green
+    0x9F5A1E, // Brown
+    0x9C1EA4, // Magenta/Purple
+    0x9C1E13, // Red
+    0x4CA7A9, // Cyan
+    0x4CA730, // Green
+    0x0000A3, // Deep Blue     (now top layer z=9)
 ];
-
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
@@ -207,10 +203,8 @@ class Block {
         this.x = Math.floor((pit.width - (maxX - minX + 1)) / 2) - minX;
         this.y = Math.floor((pit.height - (maxY - minY + 1)) / 2) - minY;
 
-        // FIX: Calculate Z so the block spawns just entering the pit
-        // e.g. If block is 3 units deep, spawn at Z = -3 so tip is at 0
-        const maxShapeZ = Math.max(...this.localCubes.map(p => p[2]));
-        this.z = -maxShapeZ;
+        // Spawn at the top of the pit (Z=0) so the block is fully visible inside the pit
+        this.z = 0;
 
         // Group for falling state (Wireframe)
         this.group = new THREE.Group();
@@ -225,15 +219,84 @@ class Block {
             this.group.remove(this.group.children[0]);
         }
 
-        const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-        const edges = new THREE.EdgesGeometry(geometry);
-        const material = new THREE.LineBasicMaterial({ color: this.color, linewidth: 2 });
+        const vertices = [];
+        const size = 1.0;
+        const half = size / 2;
 
-        this.localCubes.forEach(([lx, ly, lz]) => {
-            const cube = new THREE.LineSegments(edges, material);
-            cube.position.set(lx, ly, -lz);
-            this.group.add(cube);
-        });
+        const hasCube = (x, y, z) => this.localCubes.some(c => c[0] === x && c[1] === y && c[2] === z);
+
+        for (const [lx, ly, lz] of this.localCubes) {
+            const cx = lx;
+            const cy = ly;
+            const cz = -lz; // Invert Z for scene coordinates
+
+            // Helper to push quad vertices (2 triangles)
+            const addQuad = (v1, v2, v3, v4) => {
+                vertices.push(...v1, ...v2, ...v3);
+                vertices.push(...v1, ...v3, ...v4);
+            };
+
+            // Vertices relative to center (cx, cy, cz)
+            // 8 Corners
+            const p0 = [cx + half, cy + half, cz + half];
+            const p1 = [cx + half, cy + half, cz - half];
+            const p2 = [cx + half, cy - half, cz + half];
+            const p3 = [cx + half, cy - half, cz - half];
+            const p4 = [cx - half, cy + half, cz + half];
+            const p5 = [cx - half, cy + half, cz - half];
+            const p6 = [cx - half, cy - half, cz + half];
+            const p7 = [cx - half, cy - half, cz - half];
+
+            // Check Neighbors and add faces
+            // Right (x+1)
+            if (!hasCube(lx + 1, ly, lz)) {
+                // Face +X: p0, p1, p3, p2
+                addQuad(p0, p1, p3, p2);
+            }
+            // Left (x-1)
+            if (!hasCube(lx - 1, ly, lz)) {
+                // Face -X: p4, p6, p7, p5 (winding?) -> p5, p7, p6, p4 to match out?
+                // Normal should point -X. 
+                // CCW: 4->6->7 is wrong normal. 5->7->6->4
+                addQuad(p5, p7, p6, p4);
+            }
+            // Top (y+1)
+            if (!hasCube(lx, ly + 1, lz)) {
+                // Face +Y: p4, p5, p1, p0
+                addQuad(p4, p5, p1, p0);
+            }
+            // Bottom (y-1)
+            if (!hasCube(lx, ly - 1, lz)) {
+                // Face -Y: p2, p3, p7, p6
+                addQuad(p2, p3, p7, p6);
+            }
+            // Front (In Blockout terms, closer to camera. index "z-1" is shallower?)
+            // My grid: z=0 is top/front. z=10 is deep.
+            // Scene: z=0 is top. z=-10 is deep.
+            // "Front" face is +Z in scene.
+            // Check neighbor at `lz-1` (shallower index)
+            if (!hasCube(lx, ly, lz - 1)) {
+                // Face +Z (Front): p4, p0, p2, p6
+                addQuad(p4, p0, p2, p6);
+            }
+            // Back (Deep, -Z)
+            // Check neighbor at `lz+1` (deeper index)
+            if (!hasCube(lx, ly, lz + 1)) {
+                // Face -Z (Back): p1, p5, p7, p3
+                addQuad(p1, p5, p7, p3);
+            }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.computeVertexNormals(); // Needed for EdgesGeometry to detect coplanar faces
+
+        // Create Outline
+        const edges = new THREE.EdgesGeometry(geometry, 1);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
+        const wireframe = new THREE.LineSegments(edges, lineMat);
+
+        this.group.add(wireframe);
     }
 
     updateGroupPosition() {
@@ -331,7 +394,7 @@ class Block {
 
         // White Outline, thicker
         const edges = new THREE.EdgesGeometry(geometry);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
         const wireframe = new THREE.LineSegments(edges, lineMat);
         mesh.add(wireframe);
 
@@ -643,7 +706,7 @@ class Game {
 
                         // White Outline, thicker
                         const edges = new THREE.EdgesGeometry(geometry);
-                        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+                        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
                         const wireframe = new THREE.LineSegments(edges, lineMat);
                         mesh.add(wireframe);
 
