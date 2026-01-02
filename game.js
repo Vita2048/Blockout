@@ -9,22 +9,25 @@
 const CONFIG = {
     PIT_WIDTH: 5,   // X axis
     PIT_HEIGHT: 5,  // Y axis
-    PIT_DEPTH: 12,  // Z axis (Falling distance)
+    PIT_DEPTH: 10,  // Z axis (Falling distance)
 
     BLOCK_SIZE: 1.0,
-    FALL_SPEED_BASE: 1.2, // 50% slower (0.8 -> 1.2)
+    // Base speed parameter.
+    // Speed formula: Interval = Math.max(0.1, 1.8 - (level * 0.3))
+    // Level 1: 1.5s
+    // Level 2: 1.2s
+    // Level 3: 0.9s
+    // Level 4: 0.6s
+    // Level 5: 0.3s
     LEVEL_UP_BLOCKS: 10,
     HIGH_SCORE_KEY: 'blockout_highscore_v4'
 };
 
-// ============================================
-// BLOCK DEFINITIONS
-// ============================================
+// ... BLOCK DEFINITIONS ... (unchanged)
 const BLOCK_SHAPES = {
     L_3D: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [1, 0, 0]],
     T_FLAT: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0]],
-    I_LONG: [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 0, 3]], // Deep piece
-    CUBE: [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+    I_LONG: [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 0, 3]],
     STAIRS: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0]],
     TRIPOD: [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
     I_VER: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [0, 3, 0]],
@@ -40,10 +43,7 @@ const BLOCK_COLORS = [
     0xff0000, // Red
 ];
 
-// ============================================
-// COLORS
-// ============================================
-// Layer colors from bottom (deepest) to top
+// ... COLORS ... (unchanged)
 const LAYER_COLORS = [
     0xff0000, // Red (Level 1)
     0x00ff00, // Green (Level 2)
@@ -352,8 +352,25 @@ class Game {
     constructor() {
         this.initThreeJS();
         this.initDepthBar();
+        // Do NOT start game yet
+        this.level = 1;
+        this.isRunning = false;
+
+        // Initial render to show empty pit
+        this.pit = new Pit(CONFIG.PIT_WIDTH, CONFIG.PIT_HEIGHT, CONFIG.PIT_DEPTH);
+        this.drawEnvironment();
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    start(startLevel) {
+        this.level = startLevel;
+        document.getElementById('startScreen').style.display = 'none';
         this.restart();
-        this.animate();
+
+        if (!this.isRunning) {
+            this.isRunning = true;
+            this.animate();
+        }
     }
 
     initThreeJS() {
@@ -539,7 +556,7 @@ class Game {
 
         this.pit = new Pit(CONFIG.PIT_WIDTH, CONFIG.PIT_HEIGHT, CONFIG.PIT_DEPTH);
         this.score = 0;
-        this.level = 1;
+        // this.level = 1; // Removed to keep user selected level
         this.cubesPlayed = 0;
         this.gameOver = false;
         this.paused = false;
@@ -679,8 +696,10 @@ class Game {
     update(time) {
         if (this.gameOver || this.paused || !this.activeBlock) return;
 
-        const speed = Math.max(0.1, CONFIG.FALL_SPEED_BASE - (this.level * 0.05));
-        const interval = 1000 * speed;
+        // Speed Formula:
+        // L1: ~2.25s, L5: ~0.45s
+        const speedInterval = Math.max(0.1, 2.7 - (this.level * 0.45));
+        const interval = 1000 * speedInterval;
 
         if (time - this.lastFall > interval) {
             if (!this.activeBlock.tryMove(0, 0, 1)) {
@@ -691,6 +710,7 @@ class Game {
     }
 
     animate(time) {
+        if (!this.isRunning) return;
         requestAnimationFrame((t) => this.animate(t));
         this.update(time);
         this.renderer.render(this.scene, this.camera);
@@ -715,9 +735,17 @@ class Game {
     }
 }
 
+// Global Start Function
+window.startGame = function (level) {
+    if (window.gameInstance) {
+        window.gameInstance.start(level);
+    }
+};
+
 window.addEventListener('DOMContentLoaded', () => {
-    new Game();
+    window.gameInstance = new Game();
     document.getElementById('restartButton').addEventListener('click', () => {
+        // Reload page to return to difficulty selection
         location.reload();
     });
 });

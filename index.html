@@ -138,6 +138,74 @@
             z-index: 50;
         }
 
+        /* Game Over screen    <style>*/
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            padding: 40px;
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 4px solid #00f;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 0, 255, 0.5), inset 0 0 20px rgba(0, 0, 255, 0.2);
+            display: flex;
+            /* Visible by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        #startScreen h1 {
+            font-size: 64px;
+            color: #00f;
+            text-shadow: 0 0 10px #00f, 4px 4px 0 #f00;
+            margin-bottom: 10px;
+            letter-spacing: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        #startScreen h2 {
+            font-size: 24px;
+            color: #0f0;
+            margin-bottom: 30px;
+            text-shadow: 0 0 5px #0f0;
+            letter-spacing: 2px;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .difficulty-buttons button {
+            padding: 15px 0;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            background-color: #000;
+            color: #0ff;
+            /* Cyan text */
+            border: 2px solid #0ff;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            width: 80%;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+
+        .difficulty-buttons button:hover {
+            background-color: #0ff;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            transform: scale(1.05);
+        }
+
         /* Game Over screen */
         #gameOverScreen {
             position: absolute;
@@ -243,7 +311,7 @@
             <div class="hudValue" id="highScoreValue">0</div>
 
             <div class="hudLabel">PIT SIZE</div>
-            <div class="hudValue" id="pitSize">5x5x12</div>
+            <div class="hudValue" id="pitSize">5x5x10</div>
 
             <div class="hudLabel">BLOCK SET</div>
             <div class="hudValue" id="blockSet">BASIC</div>
@@ -251,12 +319,24 @@
 
         <div id="controls">
             ↑/↓/←/→: Move<br>
-            Q/W/E: Rotate X/Y/Z<br>
+            A/S/D or Q/W/E: Rotate X/Y/Z<br>
             SPACE: Drop<br>
             P: Pause | R: Restart
         </div>
 
         <div id="pauseIndicator">PAUSED</div>
+    </div>
+
+    <div id="startScreen">
+        <h1>BLOCK OUT</h1>
+        <h2>SELECT DIFFICULTY</h2>
+        <div class="difficulty-buttons">
+            <button onclick="startGame(1)">LEVEL 1 (Slow)</button>
+            <button onclick="startGame(2)">LEVEL 2 (Normal)</button>
+            <button onclick="startGame(3)">LEVEL 3 (Fast)</button>
+            <button onclick="startGame(4)">LEVEL 4 (Turbo)</button>
+            <button onclick="startGame(5)">LEVEL 5 (Extreme)</button>
+        </div>
     </div>
 
     <div id="gameOverScreen">
