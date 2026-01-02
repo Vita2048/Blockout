@@ -273,18 +273,45 @@ class Block {
 
         this.localCubes = normalized;
 
-        const positions = this.getCalculatedPositions();
-        let valid = true;
-        for (const p of positions) {
-            if (!this.pit.isValidAndEmpty(p.x, p.y, p.z)) {
-                valid = false;
+        // Wall Kick Logic: Try original position, then shifts
+        const kicks = [
+            [0, 0, 0],
+            [-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], // Shift 1
+            [-2, 0, 0], [2, 0, 0], [0, -2, 0], [0, 2, 0], // Shift 2 
+            [-3, 0, 0], [3, 0, 0], [0, -3, 0], [0, 3, 0]  // Shift 3 (Extreme edge cases for I-piece)
+        ];
+
+        let validPosition = null;
+
+        for (const [dx, dy, dz] of kicks) {
+            // Check all cubes with this shift
+            let isPass = true;
+            for (const [lx, ly, lz] of this.localCubes) {
+                const nx = this.x + lx + dx;
+                const ny = this.y + ly + dy;
+                const nz = this.z + lz + dz;
+
+                if (!this.pit.isValidAndEmpty(nx, ny, nz)) {
+                    isPass = false;
+                    break;
+                }
+            }
+
+            if (isPass) {
+                validPosition = [dx, dy, dz];
                 break;
             }
         }
 
-        if (valid) {
+        if (validPosition) {
+            this.x += validPosition[0];
+            this.y += validPosition[1];
+            this.z += validPosition[2]; // Usually 0, but good for completeness
+
             this.updateMeshGeometry();
+            this.updateGroupPosition();
         } else {
+            console.log("Rotation blocked - No kick valid");
             this.localCubes = originalShape;
         }
     }
