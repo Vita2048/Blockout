@@ -10,9 +10,9 @@ const CONFIG = {
     PIT_WIDTH: 5,   // X axis
     PIT_HEIGHT: 5,  // Y axis
     PIT_DEPTH: 12,  // Z axis (Falling distance)
-    
+
     BLOCK_SIZE: 1.0,
-    FALL_SPEED_BASE: 0.8, 
+    FALL_SPEED_BASE: 0.8,
     LEVEL_UP_BLOCKS: 10,
     HIGH_SCORE_KEY: 'blockout_highscore_v4'
 };
@@ -21,14 +21,14 @@ const CONFIG = {
 // BLOCK DEFINITIONS
 // ============================================
 const BLOCK_SHAPES = {
-    L_3D: [[0,0,0], [0,1,0], [0,2,0], [1,0,0]], 
-    T_FLAT: [[0,0,0], [1,0,0], [2,0,0], [1,1,0]],
-    I_LONG: [[0,0,0], [0,0,1], [0,0,2], [0,0,3]], // Deep piece
-    CUBE:   [[0,0,0], [1,0,0], [0,1,0], [1,1,0], [0,0,1], [1,0,1], [0,1,1], [1,1,1]],
-    STAIRS: [[0,0,0], [1,0,0], [1,1,0], [2,1,0]],
-    TRIPOD: [[0,0,0], [1,0,0], [0,1,0], [0,0,1]], 
-    I_VER:  [[0,0,0], [0,1,0], [0,2,0], [0,3,0]],
-    I_HOR:  [[0,0,0], [1,0,0], [2,0,0], [3,0,0]],
+    L_3D: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [1, 0, 0]],
+    T_FLAT: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0]],
+    I_LONG: [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 0, 3]], // Deep piece
+    CUBE: [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]],
+    STAIRS: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0]],
+    TRIPOD: [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
+    I_VER: [[0, 0, 0], [0, 1, 0], [0, 2, 0], [0, 3, 0]],
+    I_HOR: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]],
 };
 
 const BLOCK_COLORS = [
@@ -46,7 +46,7 @@ const BLOCK_COLORS = [
 
 function rotateBlock(blockPositions, axis) {
     return blockPositions.map(([x, y, z]) => {
-        switch(axis.toLowerCase()) {
+        switch (axis.toLowerCase()) {
             case 'x': return [x, -z, y];
             case 'y': return [z, y, -x];
             case 'z': return [-y, x, z];
@@ -59,7 +59,7 @@ function normalizeBlock(blockPositions) {
     let minX = Math.min(...blockPositions.map(p => p[0]));
     let minY = Math.min(...blockPositions.map(p => p[1]));
     let minZ = Math.min(...blockPositions.map(p => p[2]));
-    
+
     return blockPositions.map(([x, y, z]) => [
         x - minX, y - minY, z - minZ
     ]);
@@ -95,7 +95,7 @@ class Pit {
 
     placeBlock(block) {
         const positions = block.getCalculatedPositions();
-        
+
         for (const p of positions) {
             // Only place parts that are inside the pit
             if (p.z >= 0 && p.z < this.depth) {
@@ -134,7 +134,7 @@ class Pit {
         );
 
         let targetZ = this.depth - 1;
-        
+
         // Shift blocks down
         for (let z = this.depth - 1; z >= 0; z--) {
             if (!clearedIndices.includes(z)) {
@@ -179,19 +179,19 @@ class Block {
         // FIX: Calculate Z so the block spawns just entering the pit
         // e.g. If block is 3 units deep, spawn at Z = -3 so tip is at 0
         const maxShapeZ = Math.max(...this.localCubes.map(p => p[2]));
-        this.z = -maxShapeZ; 
+        this.z = -maxShapeZ;
 
         // Group for falling state (Wireframe)
         this.group = new THREE.Group();
         this.scene.add(this.group);
-        
+
         this.updateMeshGeometry();
         this.updateGroupPosition();
     }
 
     updateMeshGeometry() {
-        while(this.group.children.length > 0){ 
-            this.group.remove(this.group.children[0]); 
+        while (this.group.children.length > 0) {
+            this.group.remove(this.group.children[0]);
         }
 
         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
@@ -200,7 +200,7 @@ class Block {
 
         this.localCubes.forEach(([lx, ly, lz]) => {
             const cube = new THREE.LineSegments(edges, material);
-            cube.position.set(lx, ly, -lz); 
+            cube.position.set(lx, ly, -lz);
             this.group.add(cube);
         });
     }
@@ -223,12 +223,12 @@ class Block {
             const nx = p.x + dx;
             const ny = p.y + dy;
             const nz = p.z + dz;
-            
+
             if (!this.pit.isValidAndEmpty(nx, ny, nz)) {
                 return false;
             }
         }
-        
+
         this.x += dx;
         this.y += dy;
         this.z += dz;
@@ -239,10 +239,10 @@ class Block {
     rotate(axis) {
         const originalShape = this.localCubes;
         const newShape = rotateBlock(this.localCubes, axis);
-        const normalized = normalizeBlock(newShape); 
-        
+        const normalized = normalizeBlock(newShape);
+
         this.localCubes = normalized;
-        
+
         const positions = this.getCalculatedPositions();
         let valid = true;
         for (const p of positions) {
@@ -260,17 +260,17 @@ class Block {
     }
 
     drop() {
-        while(this.tryMove(0, 0, 1)) {}
+        while (this.tryMove(0, 0, 1)) { }
     }
 
     // Creates the SOLID block when locked
     createStaticMeshAt(lx, ly, lz, pitInstance) {
         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-        
+
         // Solid Color
         const material = new THREE.MeshLambertMaterial({ color: this.color });
         const mesh = new THREE.Mesh(geometry, material);
-        
+
         // Black Outline
         const edges = new THREE.EdgesGeometry(geometry);
         const lineMat = new THREE.LineBasicMaterial({ color: 0x000000 });
@@ -278,11 +278,11 @@ class Block {
         mesh.add(wireframe);
 
         mesh.position.set(lx, ly, -lz);
-        
+
         this.scene.add(mesh);
         pitInstance.addMesh(mesh);
     }
-    
+
     destroy() {
         this.scene.remove(this.group);
     }
@@ -305,15 +305,15 @@ class Game {
         this.camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 100);
         const cx = CONFIG.PIT_WIDTH / 2 - 0.5;
         const cy = CONFIG.PIT_HEIGHT / 2 - 0.5;
-        this.camera.position.set(cx, cy, 5); 
-        this.camera.lookAt(cx, cy, -20); 
+        this.camera.position.set(cx, cy, 5);
+        this.camera.lookAt(cx, cy, -20);
 
         // Lights
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
-        
+
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(cx, cy, 10); 
+        dirLight.position.set(cx, cy, 10);
         this.scene.add(dirLight);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -332,23 +332,26 @@ class Game {
         this.envGroup = new THREE.Group();
         this.scene.add(this.envGroup);
 
-        const material = new THREE.LineBasicMaterial({ color: 0x00aa00 }); 
+        const material = new THREE.LineBasicMaterial({ color: 0x00aa00 });
         const offset = 0.5;
-        
-        // Longitudinal
+
+        // Longitudinal (Walls Only)
+        // We only draw lines down the Z-axis if they are on the perimeter
         for (let x = 0; x <= CONFIG.PIT_WIDTH; x++) {
             for (let y = 0; y <= CONFIG.PIT_HEIGHT; y++) {
-                const points = [];
-                points.push(new THREE.Vector3(x - offset, y - offset, 0.5));
-                points.push(new THREE.Vector3(x - offset, y - offset, -CONFIG.PIT_DEPTH + 0.5));
-                
-                const geom = new THREE.BufferGeometry().setFromPoints(points);
-                const line = new THREE.Line(geom, material);
-                this.envGroup.add(line);
+                if (x === 0 || x === CONFIG.PIT_WIDTH || y === 0 || y === CONFIG.PIT_HEIGHT) {
+                    const points = [];
+                    points.push(new THREE.Vector3(x - offset, y - offset, 0.5));
+                    points.push(new THREE.Vector3(x - offset, y - offset, -CONFIG.PIT_DEPTH + 0.5));
+
+                    const geom = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geom, material);
+                    this.envGroup.add(line);
+                }
             }
         }
 
-        // Latitudinal
+        // Latitudinal (Ribs along the depth)
         for (let z = 0; z <= CONFIG.PIT_DEPTH; z++) {
             const zPos = -z + 0.5;
             const points = [];
@@ -357,6 +360,7 @@ class Game {
             const bottom = -offset;
             const top = CONFIG.PIT_HEIGHT - offset;
 
+            // Square Frame
             points.push(new THREE.Vector3(left, bottom, zPos));
             points.push(new THREE.Vector3(right, bottom, zPos));
             points.push(new THREE.Vector3(right, top, zPos));
@@ -364,24 +368,48 @@ class Game {
             points.push(new THREE.Vector3(left, bottom, zPos));
 
             const geom = new THREE.BufferGeometry().setFromPoints(points);
-            const zMat = new THREE.LineBasicMaterial({ 
-                color: 0x00aa00, 
-                opacity: 0.3 + (0.7 * (1 - z/CONFIG.PIT_DEPTH)), 
-                transparent: true 
+            // Fade out deeper lines
+            const zMat = new THREE.LineBasicMaterial({
+                color: 0x00aa00,
+                opacity: 0.3 + (0.7 * (1 - z / CONFIG.PIT_DEPTH)),
+                transparent: true
             });
             const line = new THREE.Line(geom, zMat);
             this.envGroup.add(line);
         }
+
+        // Bottom Grid (Floor)
+        // Draw cross-hatching at the very bottom
+        const bottomZ = -CONFIG.PIT_DEPTH + 0.5;
+        const floorMat = new THREE.LineBasicMaterial({ color: 0x005500, transparent: true, opacity: 0.5 });
+
+        // Vertical floor lines
+        for (let x = 1; x < CONFIG.PIT_WIDTH; x++) {
+            const points = [
+                new THREE.Vector3(x - offset, -offset, bottomZ),
+                new THREE.Vector3(x - offset, CONFIG.PIT_HEIGHT - offset, bottomZ)
+            ];
+            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), floorMat));
+        }
+
+        // Horizontal floor lines
+        for (let y = 1; y < CONFIG.PIT_HEIGHT; y++) {
+            const points = [
+                new THREE.Vector3(-offset, y - offset, bottomZ),
+                new THREE.Vector3(CONFIG.PIT_WIDTH - offset, y - offset, bottomZ)
+            ];
+            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), floorMat));
+        }
     }
 
     restart() {
-        if(this.activeBlock) this.activeBlock.destroy();
-        
-        if(this.pit) {
+        if (this.activeBlock) this.activeBlock.destroy();
+
+        if (this.pit) {
             this.pit.meshes.forEach(m => {
                 this.scene.remove(m);
-                if(m.geometry) m.geometry.dispose();
-                if(m.material) m.material.dispose();
+                if (m.geometry) m.geometry.dispose();
+                if (m.material) m.material.dispose();
             });
         }
 
@@ -396,13 +424,13 @@ class Game {
         this.drawEnvironment();
         this.spawnBlock();
         this.updateHUD();
-        
+
         document.getElementById('gameOverScreen').classList.remove('show');
     }
 
     spawnBlock() {
         this.activeBlock = new Block(this.scene, this.pit);
-        
+
         // Immediate collision check logic updated:
         // We only fail if the block physically overlaps the grid.
         // Since we spawn at negative Z, this usually passes unless the entrance is totally blocked.
@@ -443,7 +471,7 @@ class Game {
         } else {
             this.score += 10 * this.level;
         }
-        
+
         this.cubesPlayed++;
         if (this.cubesPlayed % CONFIG.LEVEL_UP_BLOCKS === 0) {
             this.level++;
@@ -463,11 +491,11 @@ class Game {
                     const cell = this.pit.grid[z][x][y];
                     if (cell) {
                         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-                        
+
                         // Solid
                         const material = new THREE.MeshLambertMaterial({ color: cell.color });
                         const mesh = new THREE.Mesh(geometry, material);
-                        
+
                         // Outline
                         const edges = new THREE.EdgesGeometry(geometry);
                         const lineMat = new THREE.LineBasicMaterial({ color: 0x000000 });
@@ -475,7 +503,7 @@ class Game {
                         mesh.add(wireframe);
 
                         mesh.position.set(x, y, -z);
-                        
+
                         this.scene.add(mesh);
                         this.pit.addMesh(mesh);
                     }
@@ -487,7 +515,7 @@ class Game {
     onKeyDown(e) {
         if (this.gameOver) return;
         const k = e.key.toLowerCase();
-        
+
         if (k === 'r') this.restart();
         if (k === 'p') {
             this.paused = !this.paused;
@@ -543,7 +571,7 @@ class Game {
         document.getElementById('levelValue').textContent = this.level;
         document.getElementById('cubesValue').textContent = this.cubesPlayed;
     }
-    
+
     onResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
@@ -554,6 +582,6 @@ class Game {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
     document.getElementById('restartButton').addEventListener('click', () => {
-        location.reload(); 
+        location.reload();
     });
 });
