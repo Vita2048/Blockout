@@ -456,7 +456,8 @@ class Game {
         // Bottom Grid (Floor)
         // Draw cross-hatching at the very bottom
         const bottomZ = -CONFIG.PIT_DEPTH + 0.5;
-        const floorMat = new THREE.LineBasicMaterial({ color: 0x005500, transparent: true, opacity: 0.5 });
+        // Updated to match side walls brightness/opacity
+        const floorMat = new THREE.LineBasicMaterial({ color: 0x00aa00 });
 
         // Vertical floor lines
         for (let x = 1; x < CONFIG.PIT_WIDTH; x++) {
@@ -661,6 +662,15 @@ class Game {
     }
 
     onKeyDown(e) {
+        // Allow ESC to return to main menu at any time
+        if (e.key === 'Escape') {
+            document.getElementById('startScreen').style.display = 'flex';
+            this.isRunning = false;
+            this.paused = false;
+            document.getElementById('pauseIndicator').classList.remove('show');
+            return;
+        }
+
         if (this.gameOver) return;
         const k = e.key.toLowerCase();
 
