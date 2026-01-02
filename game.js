@@ -12,7 +12,7 @@ const CONFIG = {
     PIT_DEPTH: 12,  // Z axis (Falling distance)
 
     BLOCK_SIZE: 1.0,
-    FALL_SPEED_BASE: 0.8,
+    FALL_SPEED_BASE: 1.2, // 50% slower (0.8 -> 1.2)
     LEVEL_UP_BLOCKS: 10,
     HIGH_SCORE_KEY: 'blockout_highscore_v4'
 };
@@ -38,6 +38,23 @@ const BLOCK_COLORS = [
     0x00ffff, // Cyan
     0x00ff00, // Green
     0xff0000, // Red
+];
+
+// ============================================
+// COLORS
+// ============================================
+// Layer colors from bottom (deepest) to top
+const LAYER_COLORS = [
+    0xff0000, // Red (Level 1)
+    0x00ff00, // Green (Level 2)
+    0x0000ff, // Blue (Level 3)
+    0xffff00, // Yellow (Level 4)
+    0x00ffff, // Cyan (Level 5)
+    0xff00ff, // Magenta (Level 6)
+    0xff8800, // Orange (Level 7)
+    0x8800ff, // Purple (Level 8)
+    0xffffff, // White (Level 9)
+    0x888888, // Gray (Level 10)
 ];
 
 // ============================================
@@ -99,8 +116,19 @@ class Pit {
         for (const p of positions) {
             // Only place parts that are inside the pit
             if (p.z >= 0 && p.z < this.depth) {
-                this.grid[p.z][p.x][p.y] = { color: block.color };
-                block.createStaticMeshAt(p.x, p.y, p.z, this);
+                // ASSIGN COLOR BASED ON DEPTH (Z-LAYER)
+                // We map the depth to a color.
+                // Note: Blockout usually has deeper = darker or specific pattern.
+                // We use our LAYER_COLORS array.
+                const colorIndex = p.z;
+                // Or cycle: const colorIndex = p.z % LAYER_COLORS.length;
+
+                const layerColor = LAYER_COLORS[colorIndex % LAYER_COLORS.length];
+
+                this.grid[p.z][p.x][p.y] = { color: layerColor };
+
+                // Pass the specific layer color to the mesh creator
+                block.createStaticMeshAt(p.x, p.y, p.z, this, layerColor);
             }
         }
     }
@@ -163,7 +191,9 @@ class Block {
         const keys = Object.keys(BLOCK_SHAPES);
         this.shapeName = keys[Math.floor(Math.random() * keys.length)];
         this.localCubes = BLOCK_SHAPES[this.shapeName].map(p => [...p]);
-        this.color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
+
+        // FALLING COLOR: White/Bright Yellow to stand out
+        this.color = 0xffff00;
 
         // Center the block based on its dimensions
         const xs = this.localCubes.map(p => p[0]);
@@ -264,11 +294,11 @@ class Block {
     }
 
     // Creates the SOLID block when locked
-    createStaticMeshAt(lx, ly, lz, pitInstance) {
+    createStaticMeshAt(lx, ly, lz, pitInstance, color) {
         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 
         // Solid Color
-        const material = new THREE.MeshLambertMaterial({ color: this.color });
+        const material = new THREE.MeshLambertMaterial({ color: color });
         const mesh = new THREE.Mesh(geometry, material);
 
         // Black Outline
@@ -294,6 +324,7 @@ class Block {
 class Game {
     constructor() {
         this.initThreeJS();
+        this.initDepthBar();
         this.restart();
         this.animate();
     }
@@ -402,6 +433,72 @@ class Game {
         }
     }
 
+    initDepthBar() {
+        const bar = document.getElementById('depthBar');
+        bar.innerHTML = '';
+        this.depthLayers = [];
+        for (let i = 0; i < CONFIG.PIT_DEPTH; i++) {
+            const d = document.createElement('div');
+            d.className = 'depth-layer';
+            bar.appendChild(d);
+            this.depthLayers.push(d);
+        }
+    }
+
+    updateDepthBar() {
+        // Assume layer 0 is closest to camera (index 0 in grid)?
+        // Wait, grid[0] is top (closest to camera, where we spawn).
+        // Grid[depth-1] is bottom.
+        // The display is column-reverse, so bottom of div is "first" child.
+        // We want the bottom of the pit to be at the bottom of the bar.
+        // So index 0 of depthLayers (bottom of HUD) should correspond to Pit Depth - 1?
+        // Or should index 0 (top of pit) be at top of HUD?
+        // Usually, tetris-like, things fall down.
+        // Bottom of the pit (grid[depth-1]) should be at the bottom of the screen.
+        // So array index `depth-1` is bottom.
+        // Our flex-direction is column-reverse, so child 0 is at bottom.
+        // So child 0 should represent grid[depth-1].
+
+        // Equation: ui_index = (depth - 1) - z;
+        // Wait, if z=depth-1 (bottom), ui_index = 0. Correct.
+
+        for (let z = 0; z < CONFIG.PIT_DEPTH; z++) {
+            // Check if layer z has any block
+            let hasBlock = false;
+            for (let x = 0; x < CONFIG.PIT_WIDTH; x++) {
+                for (let y = 0; y < CONFIG.PIT_HEIGHT; y++) {
+                    if (this.pit.grid[z][x][y] !== null) {
+                        hasBlock = true;
+                        break;
+                    }
+                }
+                if (hasBlock) break;
+            }
+
+            // Map grid Z to UI element
+            // grid[depth-1] (deepest) -> UI Bottom
+            // grid[0] (top) -> UI Top
+            // If UI uses flex-col-reverse:
+            // Child 0 is bottom. Child N is top.
+            // grid[depth-1] should map to Child 0.
+            // grid[0] should map to Child depth-1.
+
+            const uiIndex = (CONFIG.PIT_DEPTH - 1) - z;
+            const el = this.depthLayers[uiIndex];
+
+            if (hasBlock) {
+                // Use the same color as the layer
+                const colorHex = LAYER_COLORS[z % LAYER_COLORS.length];
+                const hexString = '#' + colorHex.toString(16).padStart(6, '0');
+                el.style.backgroundColor = hexString;
+                el.classList.add('filled');
+            } else {
+                el.style.backgroundColor = 'transparent';
+                el.classList.remove('filled');
+            }
+        }
+    }
+
     restart() {
         if (this.activeBlock) this.activeBlock.destroy();
 
@@ -424,6 +521,7 @@ class Game {
         this.drawEnvironment();
         this.spawnBlock();
         this.updateHUD();
+        this.updateDepthBar(); // Initialize empty
 
         document.getElementById('gameOverScreen').classList.remove('show');
     }
@@ -478,6 +576,7 @@ class Game {
         }
 
         this.updateHUD();
+        this.updateDepthBar(); // Update UI
         this.spawnBlock();
     }
 
@@ -490,6 +589,11 @@ class Game {
                 for (let y = 0; y < this.pit.height; y++) {
                     const cell = this.pit.grid[z][x][y];
                     if (cell) {
+                        // Pass the stored color
+                        // We need to use createStaticMeshAt but static...
+                        // We can just inline it or call a static helper.
+                        // Since Block has the method, we can just replicate it here or make it static.
+                        // Let's just create the mesh here directly.
                         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
 
                         // Solid
@@ -530,9 +634,14 @@ class Game {
         if (k === 'arrowup') this.activeBlock.tryMove(0, 1, 0);
         if (k === 'arrowdown') this.activeBlock.tryMove(0, -1, 0);
 
-        if (k === 'q') this.activeBlock.rotate('x');
-        if (k === 'w') this.activeBlock.rotate('y');
-        if (k === 'e') this.activeBlock.rotate('z');
+        if (k === 'q') { console.log('Rotate X'); this.activeBlock.rotate('x'); }
+        if (k === 'w') { console.log('Rotate Y'); this.activeBlock.rotate('y'); }
+        if (k === 'e') { console.log('Rotate Z'); this.activeBlock.rotate('z'); }
+
+        // Alternative Rotation Keys (A, S, D)
+        if (k === 'a') { console.log('Rotate X (Alt)'); this.activeBlock.rotate('x'); }
+        if (k === 's') { console.log('Rotate Y (Alt)'); this.activeBlock.rotate('y'); }
+        if (k === 'd') { console.log('Rotate Z (Alt)'); this.activeBlock.rotate('z'); }
 
         if (k === ' ') {
             this.activeBlock.drop();
