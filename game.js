@@ -1,6 +1,6 @@
 /**
  * BLOCK OUT - Retro 3D Tetris Game
- * Solid Block Edition
+ * Fixed Spawn Logic & Solid Rendering
  */
 
 // ============================================
@@ -14,7 +14,7 @@ const CONFIG = {
     BLOCK_SIZE: 1.0,
     FALL_SPEED_BASE: 0.8, 
     LEVEL_UP_BLOCKS: 10,
-    HIGH_SCORE_KEY: 'blockout_highscore_v3'
+    HIGH_SCORE_KEY: 'blockout_highscore_v4'
 };
 
 // ============================================
@@ -23,7 +23,7 @@ const CONFIG = {
 const BLOCK_SHAPES = {
     L_3D: [[0,0,0], [0,1,0], [0,2,0], [1,0,0]], 
     T_FLAT: [[0,0,0], [1,0,0], [2,0,0], [1,1,0]],
-    I_LONG: [[0,0,0], [0,0,1], [0,0,2], [0,0,3]], 
+    I_LONG: [[0,0,0], [0,0,1], [0,0,2], [0,0,3]], // Deep piece
     CUBE:   [[0,0,0], [1,0,0], [0,1,0], [1,1,0], [0,0,1], [1,0,1], [0,1,1], [1,1,1]],
     STAIRS: [[0,0,0], [1,0,0], [1,1,0], [2,1,0]],
     TRIPOD: [[0,0,0], [1,0,0], [0,1,0], [0,0,1]], 
@@ -84,11 +84,12 @@ class Pit {
         this.meshes = [];
     }
 
+    // Check if a coordinate is valid for movement
     isValidAndEmpty(x, y, z) {
         if (x < 0 || x >= this.width) return false;
         if (y < 0 || y >= this.height) return false;
-        if (z >= this.depth) return false; 
-        if (z < 0) return true; 
+        if (z >= this.depth) return false; // Hit bottom
+        if (z < 0) return true; // Allowed in "air" above pit
         return this.grid[z][x][y] === null;
     }
 
@@ -96,10 +97,9 @@ class Pit {
         const positions = block.getCalculatedPositions();
         
         for (const p of positions) {
+            // Only place parts that are inside the pit
             if (p.z >= 0 && p.z < this.depth) {
                 this.grid[p.z][p.x][p.y] = { color: block.color };
-                
-                // Create the SOLID mesh now that it is locked
                 block.createStaticMeshAt(p.x, p.y, p.z, this);
             }
         }
@@ -135,6 +135,7 @@ class Pit {
 
         let targetZ = this.depth - 1;
         
+        // Shift blocks down
         for (let z = this.depth - 1; z >= 0; z--) {
             if (!clearedIndices.includes(z)) {
                 for (let x = 0; x < this.width; x++) {
@@ -164,9 +165,21 @@ class Block {
         this.localCubes = BLOCK_SHAPES[this.shapeName].map(p => [...p]);
         this.color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
 
-        this.x = Math.floor(pit.width / 2);
-        this.y = Math.floor(pit.height / 2);
-        this.z = 0; 
+        // Center the block based on its dimensions
+        const xs = this.localCubes.map(p => p[0]);
+        const ys = this.localCubes.map(p => p[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        this.x = Math.floor((pit.width - (maxX - minX + 1)) / 2) - minX;
+        this.y = Math.floor((pit.height - (maxY - minY + 1)) / 2) - minY;
+
+        // FIX: Calculate Z so the block spawns just entering the pit
+        // e.g. If block is 3 units deep, spawn at Z = -3 so tip is at 0
+        const maxShapeZ = Math.max(...this.localCubes.map(p => p[2]));
+        this.z = -maxShapeZ; 
 
         // Group for falling state (Wireframe)
         this.group = new THREE.Group();
@@ -250,15 +263,15 @@ class Block {
         while(this.tryMove(0, 0, 1)) {}
     }
 
-    // THIS CREATES THE SOLID BLOCK WHEN IT LOCKS
+    // Creates the SOLID block when locked
     createStaticMeshAt(lx, ly, lz, pitInstance) {
         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
         
-        // 1. Solid colored cube
+        // Solid Color
         const material = new THREE.MeshLambertMaterial({ color: this.color });
         const mesh = new THREE.Mesh(geometry, material);
         
-        // 2. Black outline (Wireframe) so cubes are distinct
+        // Black Outline
         const edges = new THREE.EdgesGeometry(geometry);
         const lineMat = new THREE.LineBasicMaterial({ color: 0x000000 });
         const wireframe = new THREE.LineSegments(edges, lineMat);
@@ -295,12 +308,12 @@ class Game {
         this.camera.position.set(cx, cy, 5); 
         this.camera.lookAt(cx, cy, -20); 
 
-        // LIGHTING (Required for Solid Blocks)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
         
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(cx, cy, 10); // Light coming from behind camera
+        dirLight.position.set(cx, cy, 10); 
         this.scene.add(dirLight);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -367,7 +380,6 @@ class Game {
         if(this.pit) {
             this.pit.meshes.forEach(m => {
                 this.scene.remove(m);
-                // Simple disposal
                 if(m.geometry) m.geometry.dispose();
                 if(m.material) m.material.dispose();
             });
@@ -391,6 +403,9 @@ class Game {
     spawnBlock() {
         this.activeBlock = new Block(this.scene, this.pit);
         
+        // Immediate collision check logic updated:
+        // We only fail if the block physically overlaps the grid.
+        // Since we spawn at negative Z, this usually passes unless the entrance is totally blocked.
         const positions = this.activeBlock.getCalculatedPositions();
         for (const p of positions) {
             if (!this.pit.isValidAndEmpty(p.x, p.y, p.z)) {
@@ -401,9 +416,25 @@ class Game {
     }
 
     lockBlock() {
+        // FIX: Check for overflow before clearing lines
+        // If any part of the block is still outside (Z < 0), it's Game Over
+        const positions = this.activeBlock.getCalculatedPositions();
+        let overflow = false;
+        for (const p of positions) {
+            if (p.z < 0) {
+                overflow = true;
+                break;
+            }
+        }
+
         this.pit.placeBlock(this.activeBlock);
         this.activeBlock.destroy();
         this.activeBlock = null;
+
+        if (overflow) {
+            this.endGame();
+            return;
+        }
 
         const cleared = this.pit.clearLayers();
         if (cleared > 0) {
@@ -431,7 +462,6 @@ class Game {
                 for (let y = 0; y < this.pit.height; y++) {
                     const cell = this.pit.grid[z][x][y];
                     if (cell) {
-                        // Reconstruct solid meshes
                         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
                         
                         // Solid
