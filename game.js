@@ -44,17 +44,18 @@ const BLOCK_COLORS = [
 ];
 
 // ... COLORS ... (unchanged)
+// Palette extracted from BlockOut screenshot
 const LAYER_COLORS = [
-    0xff0000, // Red (Level 1)
-    0x00ff00, // Green (Level 2)
-    0x0000ff, // Blue (Level 3)
-    0xffff00, // Yellow (Level 4)
-    0x00ffff, // Cyan (Level 5)
-    0xff00ff, // Magenta (Level 6)
-    0xff8800, // Orange (Level 7)
-    0x8800ff, // Purple (Level 8)
-    0xffffff, // White (Level 9)
-    0x888888, // Gray (Level 10)
+    0x0000AA, // Deep Blue (Bottom - Layer 0 in reverse logic? Wait. Screenshot shows bottom blue)
+    0x00AA00, // Green
+    0x00AAAA, // Cyan
+    0xAA0000, // Red
+    0xAA00AA, // Magenta/Purple
+    0xAA5500, // Brown
+    0xAAAAAA, // Light Gray
+    0x555555, // Dark Gray
+    0x5555FF, // Lighter Blue
+    0x55FF55, // Lighter Green
 ];
 
 // ============================================
@@ -328,9 +329,9 @@ class Block {
         const material = new THREE.MeshLambertMaterial({ color: color });
         const mesh = new THREE.Mesh(geometry, material);
 
-        // Black Outline
+        // White Outline, thicker
         const edges = new THREE.EdgesGeometry(geometry);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
         const wireframe = new THREE.LineSegments(edges, lineMat);
         mesh.add(wireframe);
 
@@ -443,13 +444,8 @@ class Game {
             points.push(new THREE.Vector3(left, bottom, zPos));
 
             const geom = new THREE.BufferGeometry().setFromPoints(points);
-            // Fade out deeper lines
-            const zMat = new THREE.LineBasicMaterial({
-                color: 0x00aa00,
-                opacity: 0.3 + (0.7 * (1 - z / CONFIG.PIT_DEPTH)),
-                transparent: true
-            });
-            const line = new THREE.Line(geom, zMat);
+            // Use same material as longitudinal lines for consistent brightness
+            const line = new THREE.Line(geom, material);
             this.envGroup.add(line);
         }
 
@@ -645,9 +641,9 @@ class Game {
                         const material = new THREE.MeshLambertMaterial({ color: cell.color });
                         const mesh = new THREE.Mesh(geometry, material);
 
-                        // Outline
+                        // White Outline, thicker
                         const edges = new THREE.EdgesGeometry(geometry);
-                        const lineMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+                        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
                         const wireframe = new THREE.LineSegments(edges, lineMat);
                         mesh.add(wireframe);
 

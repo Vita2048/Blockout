@@ -37,40 +37,73 @@
             font-weight: bold;
         }
 
-        /* Title */
-        #title {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 32px;
-            color: #f00;
-            text-shadow: 2px 2px 0 #0f0;
-            letter-spacing: 3px;
-        }
-
         /* Right sidebar */
         #rightPanel {
             position: absolute;
-            right: 30px;
-            top: 100px;
-            text-align: left;
-            line-height: 1.8;
-            color: #0f0;
+            right: 20px;
+            top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            width: 200px;
+        }
+
+        .logo-container {
+            margin-bottom: 30px;
+            text-align: center;
+            transform: skewX(-10deg);
+            /* Slight retro skew */
+        }
+
+        .logo-text {
+            font-family: 'Arial Black', 'Impact', sans-serif;
+            font-size: 48px;
+            line-height: 0.8;
+            text-transform: uppercase;
+        }
+
+        .logo-text.blue-red {
+            color: #0022ff;
+            /* Complex shadow for outline effect */
+            text-shadow:
+                -2px -2px 0 #ff0000,
+                2px -2px 0 #ff0000,
+                -2px 2px 0 #ff0000,
+                2px 2px 0 #ff0000,
+                4px 4px 0 #000;
+        }
+
+        .hudGroup {
+            margin-bottom: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
         }
 
         .hudLabel {
-            color: #00f;
+            color: #0088ff;
             font-size: 14px;
             letter-spacing: 1px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            width: 100%;
+            text-align: center;
         }
 
         .hudValue {
-            color: #ff0;
-            font-size: 18px;
-            margin-left: 20px;
-            margin-bottom: 20px;
+            color: #0f0;
+            /* Green text */
+            font-size: 22px;
             font-weight: bold;
+            border: 3px solid #0000ff;
+            /* Blue border */
+            background-color: #000;
+            padding: 5px 10px;
+            text-align: right;
+            width: 100%;
+            box-shadow: 0 0 10px rgba(0, 0, 255, 0.5), inset 0 0 10px rgba(0, 0, 255, 0.3);
+            font-family: 'Courier New', monospace;
         }
 
         /* Left sidebar */
@@ -156,6 +189,7 @@
             justify-content: center;
             align-items: center;
             z-index: 200;
+            pointer-events: auto;
         }
 
         #startScreen h1 {
@@ -291,7 +325,7 @@
 
 <body>
     <div id="hud">
-        <div id="title">BLOCK OUT</div>
+        <!-- Center Title Removed, moving to Right Panel -->
 
         <div id="leftPanel">
             <div id="levelLabel">LEVEL</div>
@@ -301,27 +335,42 @@
         <div id="depthBar"></div>
 
         <div id="rightPanel">
-            <div class="hudLabel">SCORE</div>
-            <div class="hudValue" id="scoreValue">0</div>
+            <div class="logo-container">
+                <div class="logo-text blue-red">BLOCK</div>
+                <div class="logo-text blue-red">OUT</div>
+            </div>
 
-            <div class="hudLabel">CUBES PLAYED</div>
-            <div class="hudValue" id="cubesValue">0</div>
+            <div class="hudGroup">
+                <div class="hudLabel">SCORE</div>
+                <div class="hudValue" id="scoreValue">0</div>
+            </div>
 
-            <div class="hudLabel">HIGH SCORE</div>
-            <div class="hudValue" id="highScoreValue">0</div>
+            <div class="hudGroup">
+                <div class="hudLabel">CUBES PLAYED</div>
+                <div class="hudValue" id="cubesValue">0</div>
+            </div>
 
-            <div class="hudLabel">PIT SIZE</div>
-            <div class="hudValue" id="pitSize">5x5x10</div>
+            <div class="hudGroup">
+                <div class="hudLabel">HIGH SCORE</div>
+                <div class="hudValue" id="highScoreValue">0</div>
+            </div>
 
-            <div class="hudLabel">BLOCK SET</div>
-            <div class="hudValue" id="blockSet">BASIC</div>
+            <div class="hudGroup">
+                <div class="hudLabel">PIT SIZE</div>
+                <div class="hudValue" id="pitSize">5x5x10</div>
+            </div>
+
+            <div class="hudGroup">
+                <div class="hudLabel">BLOCK SET</div>
+                <div class="hudValue" id="blockSet">BASIC</div>
+            </div>
         </div>
 
         <div id="controls">
             ↑/↓/←/→: Move<br>
             A/S/D or Q/W/E: Rotate X/Y/Z<br>
             SPACE: Drop<br>
-            P: Pause | R: Restart
+            P: Pause | R: Restart | Esc: Menu
         </div>
 
         <div id="pauseIndicator">PAUSED</div>
