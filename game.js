@@ -626,6 +626,7 @@ class Game {
         this.cubesPlayed = 0;
         this.gameOver = false;
         this.paused = false;
+        document.getElementById('pauseIndicator').classList.remove('show');
         this.lastFall = 0;
 
         this.drawEnvironment();
@@ -739,7 +740,6 @@ class Game {
         if (this.gameOver) return;
         const k = e.key.toLowerCase();
 
-        if (k === 'r') this.restart();
         if (k === 'p') {
             this.paused = !this.paused;
             document.getElementById('pauseIndicator').classList.toggle('show', this.paused);
