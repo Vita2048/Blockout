@@ -173,6 +173,19 @@ class Pit {
         }
 
         this.grid = newGrid;
+
+        // Update colors based on new depths
+        for (let z = 0; z < this.depth; z++) {
+            for (let x = 0; x < this.width; x++) {
+                for (let y = 0; y < this.height; y++) {
+                    if (this.grid[z][x][y]) {
+                        const layerColor = LAYER_COLORS[z % LAYER_COLORS.length];
+                        this.grid[z][x][y].color = layerColor;
+                    }
+                }
+            }
+        }
+
         return clearedIndices.length;
     }
 }
