@@ -12,14 +12,6 @@ const CONFIG = {
     PIT_DEPTH: 10,  // Z axis (Falling distance)
 
     BLOCK_SIZE: 1.0,
-    // Base speed parameter.
-    // Speed formula: Interval = Math.max(0.1, 1.8 - (level * 0.3))
-    // Level 1: 1.5s
-    // Level 2: 1.2s
-    // Level 3: 0.9s
-    // Level 4: 0.6s
-    // Level 5: 0.3s
-    LEVEL_UP_BLOCKS: 10,
     HIGH_SCORE_KEY: 'blockout_highscore_v4'
 };
 
@@ -682,9 +674,6 @@ class Game {
         }
 
         this.cubesPlayed++;
-        if (this.cubesPlayed % CONFIG.LEVEL_UP_BLOCKS === 0) {
-            this.level++;
-        }
 
         this.updateHUD();
         this.updateDepthBar(); // Update UI
