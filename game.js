@@ -192,16 +192,9 @@ class Block {
         // FALLING COLOR: White/Bright Yellow to stand out
         this.color = 0xffff00;
 
-        // Center the block based on its dimensions
-        const xs = this.localCubes.map(p => p[0]);
-        const ys = this.localCubes.map(p => p[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-
-        this.x = Math.floor((pit.width - (maxX - minX + 1)) / 2) - minX;
-        this.y = Math.floor((pit.height - (maxY - minY + 1)) / 2) - minY;
+        // Spawn the block at the left bottom side of the pit
+        this.x = 0;
+        this.y = 0;
 
         // Spawn at the top of the pit (Z=0) so the block is fully visible inside the pit
         this.z = 0;
@@ -766,8 +759,8 @@ class Game {
         if (this.gameOver || this.paused || !this.activeBlock) return;
 
         // Speed Formula:
-        // L1: ~2.25s, L5: ~0.45s
-        const speedInterval = Math.max(0.1, 2.7 - (this.level * 0.45));
+        // L1: ~5s, L5: ~0.5s
+        const speedInterval = Math.max(0.1, 6.125 - (this.level * 1.125));
         const interval = 1000 * speedInterval;
 
         if (time - this.lastFall > interval) {
