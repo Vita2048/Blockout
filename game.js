@@ -71,6 +71,115 @@ function normalizeBlock(blockPositions) {
     ]);
 }
 
+function createTextSprite(text, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; // Increased for better resolution
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+
+    // Support both string colors ('red') and hex numbers (0xff0000)
+    let fillStyle = color;
+    if (typeof color === 'number') {
+        fillStyle = '#' + color.toString(16).padStart(6, '0');
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = 'Bold 80px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = fillStyle;
+    context.fillText(text, 64, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const textureMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false // Ensure labels are always visible
+    });
+
+    const sprite = new THREE.Sprite(textureMaterial);
+    sprite.scale.set(1.2, 1.2, 1); // Larger label
+    return sprite;
+}
+
+// Helper for Resolution-Independent Thick Lines
+function createThickLineSegments(edgesGeometry, color, linewidth) {
+    const lineGeometry = new THREE.LineSegmentsGeometry().fromEdgesGeometry(edgesGeometry);
+    const lineMaterial = new THREE.LineMaterial({
+        color: color,
+        linewidth: linewidth,
+        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
+    });
+    const line = new THREE.LineSegments2(lineGeometry, lineMaterial);
+
+    if (window.gameInstance) {
+        window.gameInstance.lineMaterials.push(lineMaterial);
+    }
+
+    return line;
+}
+
+function createRotationGuide(axis, radius, color, keyLabel) {
+    const group = new THREE.Group();
+
+    // Reduced thickness by 50%
+    const arcLength = 1.5 * Math.PI;
+    const torusGeom = new THREE.TorusGeometry(radius, 0.015, 8, 40, arcLength);
+    const torusMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    const arc = new THREE.Mesh(torusGeom, torusMat);
+    group.add(arc);
+
+    // Arrowhead (Cone)
+    const coneGeom = new THREE.ConeGeometry(0.18, 0.4, 8);
+    const coneMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 });
+    const arrowhead = new THREE.Mesh(coneGeom, coneMat);
+
+    // Position arrowhead at the end of the arc
+    arrowhead.position.set(
+        Math.cos(arcLength) * radius,
+        Math.sin(arcLength) * radius,
+        0
+    );
+
+    // Rotate arrowhead to point along the tangent
+    arrowhead.rotation.z = arcLength;
+
+    group.add(arrowhead);
+
+    // Key Label for this rotation - Staggered to prevent overlap
+    const label = createTextSprite(keyLabel, color);
+
+    // Position labels at different angles relative to the axis to prevent overlap
+    let angle = 0;
+    if (axis === 'x') angle = 0;
+    if (axis === 'y') angle = Math.PI / 4;
+    if (axis === 'z') angle = Math.PI / 2;
+
+    const labelOffset = radius + 0.8;
+    label.position.set(
+        Math.cos(angle) * labelOffset,
+        Math.sin(angle) * labelOffset,
+        0
+    );
+    group.add(label);
+
+    // Orient the group based on the axis
+    if (axis === 'x') {
+        group.rotation.y = Math.PI / 2;
+    } else if (axis === 'y') {
+        group.rotation.x = -Math.PI / 2;
+    }
+
+    return group;
+}
+
 // ============================================
 // PIT CLASS
 // ============================================
@@ -105,18 +214,9 @@ class Pit {
         for (const p of positions) {
             // Only place parts that are inside the pit
             if (p.z >= 0 && p.z < this.depth) {
-                // ASSIGN COLOR BASED ON DEPTH (Z-LAYER)
-                // We map the depth to a color.
-                // Note: Blockout usually has deeper = darker or specific pattern.
-                // We use our LAYER_COLORS array.
                 const colorIndex = p.z;
-                // Or cycle: const colorIndex = p.z % LAYER_COLORS.length;
-
                 const layerColor = LAYER_COLORS[colorIndex % LAYER_COLORS.length];
-
                 this.grid[p.z][p.x][p.y] = { color: layerColor };
-
-                // Pass the specific layer color to the mesh creator
                 block.createStaticMeshAt(p.x, p.y, p.z, this, layerColor);
             }
         }
@@ -197,11 +297,11 @@ class Block {
         // FALLING COLOR: White/Bright Yellow to stand out
         this.color = 0xffff00;
 
-        // Spawn the block at the left bottom side of the pit
+        // Spawn at left-bottom corner
         this.x = 0;
         this.y = 0;
 
-        // Spawn at the top of the pit (Z=0) so the block is fully visible inside the pit
+        // Spawn at the top of the pit (Z=0)
         this.z = 0;
 
         // Group for falling state (Wireframe)
@@ -226,16 +326,13 @@ class Block {
         for (const [lx, ly, lz] of this.localCubes) {
             const cx = lx;
             const cy = ly;
-            const cz = -lz; // Invert Z for scene coordinates
+            const cz = -lz;
 
-            // Helper to push quad vertices (2 triangles)
             const addQuad = (v1, v2, v3, v4) => {
                 vertices.push(...v1, ...v2, ...v3);
                 vertices.push(...v1, ...v3, ...v4);
             };
 
-            // Vertices relative to center (cx, cy, cz)
-            // 8 Corners
             const p0 = [cx + half, cy + half, cz + half];
             const p1 = [cx + half, cy + half, cz - half];
             const p2 = [cx + half, cy - half, cz + half];
@@ -245,56 +342,49 @@ class Block {
             const p6 = [cx - half, cy - half, cz + half];
             const p7 = [cx - half, cy - half, cz - half];
 
-            // Check Neighbors and add faces
-            // Right (x+1)
-            if (!hasCube(lx + 1, ly, lz)) {
-                // Face +X: p0, p1, p3, p2
-                addQuad(p0, p1, p3, p2);
-            }
-            // Left (x-1)
-            if (!hasCube(lx - 1, ly, lz)) {
-                // Face -X: p4, p6, p7, p5 (winding?) -> p5, p7, p6, p4 to match out?
-                // Normal should point -X. 
-                // CCW: 4->6->7 is wrong normal. 5->7->6->4
-                addQuad(p5, p7, p6, p4);
-            }
-            // Top (y+1)
-            if (!hasCube(lx, ly + 1, lz)) {
-                // Face +Y: p4, p5, p1, p0
-                addQuad(p4, p5, p1, p0);
-            }
-            // Bottom (y-1)
-            if (!hasCube(lx, ly - 1, lz)) {
-                // Face -Y: p2, p3, p7, p6
-                addQuad(p2, p3, p7, p6);
-            }
-            // Front (In Blockout terms, closer to camera. index "z-1" is shallower?)
-            // My grid: z=0 is top/front. z=10 is deep.
-            // Scene: z=0 is top. z=-10 is deep.
-            // "Front" face is +Z in scene.
-            // Check neighbor at `lz-1` (shallower index)
-            if (!hasCube(lx, ly, lz - 1)) {
-                // Face +Z (Front): p4, p0, p2, p6
-                addQuad(p4, p0, p2, p6);
-            }
-            // Back (Deep, -Z)
-            // Check neighbor at `lz+1` (deeper index)
-            if (!hasCube(lx, ly, lz + 1)) {
-                // Face -Z (Back): p1, p5, p7, p3
-                addQuad(p1, p5, p7, p3);
-            }
+            if (!hasCube(lx + 1, ly, lz)) addQuad(p0, p1, p3, p2);
+            if (!hasCube(lx - 1, ly, lz)) addQuad(p5, p7, p6, p4);
+            if (!hasCube(lx, ly + 1, lz)) addQuad(p4, p5, p1, p0);
+            if (!hasCube(lx, ly - 1, lz)) addQuad(p2, p3, p7, p6);
+            if (!hasCube(lx, ly, lz - 1)) addQuad(p4, p0, p2, p6);
+            if (!hasCube(lx, ly, lz + 1)) addQuad(p1, p5, p7, p3);
         }
 
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        geometry.computeVertexNormals(); // Needed for EdgesGeometry to detect coplanar faces
+        geometry.computeVertexNormals();
 
-        // Create Outline
         const edges = new THREE.EdgesGeometry(geometry, 1);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
-        const wireframe = new THREE.LineSegments(edges, lineMat);
+        const thickWireframe = createThickLineSegments(edges, 0xffffff, 4);
+        this.group.add(thickWireframe);
+        this.addRotationGuides();
+    }
 
-        this.group.add(wireframe);
+    addRotationGuides() {
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        for (const [lx, ly, lz] of this.localCubes) {
+            minX = Math.min(minX, lx); maxX = Math.max(maxX, lx);
+            minY = Math.min(minY, ly); maxY = Math.max(maxY, ly);
+            minZ = Math.min(minZ, lz); maxZ = Math.max(maxZ, lz);
+        }
+
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const centerZ = -(minZ + maxZ) / 2;
+
+        const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ);
+        const radius = maxDim * 0.7 + 0.8;
+
+        /*const guides = new THREE.Group();
+        guides.add(createRotationGuide('x', radius, 0xff0000, 'A')); // Red for X -> A
+        guides.add(createRotationGuide('y', radius, 0x00ff00, 'S')); // Green for Y -> S
+        guides.add(createRotationGuide('z', radius, 0x0000ff, 'D')); // Blue for Z -> D
+
+        guides.position.set(centerX, centerY, centerZ);
+        this.group.add(guides);*/
     }
 
     updateGroupPosition() {
@@ -315,10 +405,7 @@ class Block {
             const nx = p.x + dx;
             const ny = p.y + dy;
             const nz = p.z + dz;
-
-            if (!this.pit.isValidAndEmpty(nx, ny, nz)) {
-                return false;
-            }
+            if (!this.pit.isValidAndEmpty(nx, ny, nz)) return false;
         }
 
         this.x += dx;
@@ -335,30 +422,26 @@ class Block {
 
         this.localCubes = normalized;
 
-        // Wall Kick Logic: Try original position, then shifts
         const kicks = [
             [0, 0, 0],
-            [-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], // Shift 1
-            [-2, 0, 0], [2, 0, 0], [0, -2, 0], [0, 2, 0], // Shift 2 
-            [-3, 0, 0], [3, 0, 0], [0, -3, 0], [0, 3, 0]  // Shift 3 (Extreme edge cases for I-piece)
+            [-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0],
+            [-2, 0, 0], [2, 0, 0], [0, -2, 0], [0, 2, 0],
+            [-3, 0, 0], [3, 0, 0], [0, -3, 0], [0, 3, 0]
         ];
 
         let validPosition = null;
 
         for (const [dx, dy, dz] of kicks) {
-            // Check all cubes with this shift
             let isPass = true;
             for (const [lx, ly, lz] of this.localCubes) {
                 const nx = this.x + lx + dx;
                 const ny = this.y + ly + dy;
                 const nz = this.z + lz + dz;
-
                 if (!this.pit.isValidAndEmpty(nx, ny, nz)) {
                     isPass = false;
                     break;
                 }
             }
-
             if (isPass) {
                 validPosition = [dx, dy, dz];
                 break;
@@ -368,12 +451,11 @@ class Block {
         if (validPosition) {
             this.x += validPosition[0];
             this.y += validPosition[1];
-            this.z += validPosition[2]; // Usually 0, but good for completeness
-
+            this.z += validPosition[2];
             this.updateMeshGeometry();
             this.updateGroupPosition();
         } else {
-            console.log("Rotation blocked - No kick valid");
+            console.log("Rotation blocked");
             this.localCubes = originalShape;
         }
     }
@@ -382,22 +464,14 @@ class Block {
         while (this.tryMove(0, 0, 1)) { }
     }
 
-    // Creates the SOLID block when locked
     createStaticMeshAt(lx, ly, lz, pitInstance, color) {
         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-
-        // Solid Color
         const material = new THREE.MeshLambertMaterial({ color: color });
         const mesh = new THREE.Mesh(geometry, material);
-
-        // White Outline, thicker
         const edges = new THREE.EdgesGeometry(geometry);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
-        const wireframe = new THREE.LineSegments(edges, lineMat);
-        mesh.add(wireframe);
-
+        const thickWireframe = createThickLineSegments(edges, 0xffffff, 1);
+        mesh.add(thickWireframe);
         mesh.position.set(lx, ly, -lz);
-
         this.scene.add(mesh);
         pitInstance.addMesh(mesh);
     }
@@ -414,11 +488,10 @@ class Game {
     constructor() {
         this.initThreeJS();
         this.initDepthBar();
-        // Do NOT start game yet
         this.level = 1;
         this.isRunning = false;
 
-        // Initial render to show empty pit
+        this.lineMaterials = [];
         this.pit = new Pit(CONFIG.PIT_WIDTH, CONFIG.PIT_HEIGHT, CONFIG.PIT_DEPTH);
         this.drawEnvironment();
         this.renderer.render(this.scene, this.camera);
@@ -445,7 +518,6 @@ class Game {
         this.camera.position.set(cx, cy, 5);
         this.camera.lookAt(cx, cy, -20);
 
-        // Lights
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
 
@@ -472,67 +544,40 @@ class Game {
         const material = new THREE.LineBasicMaterial({ color: 0x00aa00 });
         const offset = 0.5;
 
-        // Longitudinal (Walls Only)
-        // We only draw lines down the Z-axis if they are on the perimeter
         for (let x = 0; x <= CONFIG.PIT_WIDTH; x++) {
             for (let y = 0; y <= CONFIG.PIT_HEIGHT; y++) {
                 if (x === 0 || x === CONFIG.PIT_WIDTH || y === 0 || y === CONFIG.PIT_HEIGHT) {
                     const points = [];
                     points.push(new THREE.Vector3(x - offset, y - offset, 0.5));
                     points.push(new THREE.Vector3(x - offset, y - offset, -CONFIG.PIT_DEPTH + 0.5));
-
-                    const geom = new THREE.BufferGeometry().setFromPoints(points);
-                    const line = new THREE.Line(geom, material);
-                    this.envGroup.add(line);
+                    this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
                 }
             }
         }
 
-        // Latitudinal (Ribs along the depth)
         for (let z = 0; z <= CONFIG.PIT_DEPTH; z++) {
             const zPos = -z + 0.5;
             const points = [];
-            const left = -offset;
-            const right = CONFIG.PIT_WIDTH - offset;
-            const bottom = -offset;
-            const top = CONFIG.PIT_HEIGHT - offset;
-
-            // Square Frame
+            const left = -offset, right = CONFIG.PIT_WIDTH - offset;
+            const bottom = -offset, top = CONFIG.PIT_HEIGHT - offset;
             points.push(new THREE.Vector3(left, bottom, zPos));
             points.push(new THREE.Vector3(right, bottom, zPos));
             points.push(new THREE.Vector3(right, top, zPos));
             points.push(new THREE.Vector3(left, top, zPos));
             points.push(new THREE.Vector3(left, bottom, zPos));
-
-            const geom = new THREE.BufferGeometry().setFromPoints(points);
-            // Use same material as longitudinal lines for consistent brightness
-            const line = new THREE.Line(geom, material);
-            this.envGroup.add(line);
+            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
         }
 
-        // Bottom Grid (Floor)
-        // Draw cross-hatching at the very bottom
         const bottomZ = -CONFIG.PIT_DEPTH + 0.5;
-        // Updated to match side walls brightness/opacity
-        const floorMat = new THREE.LineBasicMaterial({ color: 0x00aa00 });
-
-        // Vertical floor lines
         for (let x = 1; x < CONFIG.PIT_WIDTH; x++) {
-            const points = [
-                new THREE.Vector3(x - offset, -offset, bottomZ),
-                new THREE.Vector3(x - offset, CONFIG.PIT_HEIGHT - offset, bottomZ)
-            ];
-            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), floorMat));
+            const points = [new THREE.Vector3(x - offset, -offset, bottomZ), new THREE.Vector3(x - offset, CONFIG.PIT_HEIGHT - offset, bottomZ)];
+            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
+        }
+        for (let y = 1; y < CONFIG.PIT_HEIGHT; y++) {
+            const points = [new THREE.Vector3(-offset, y - offset, bottomZ), new THREE.Vector3(CONFIG.PIT_WIDTH - offset, y - offset, bottomZ)];
+            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
         }
 
-        // Horizontal floor lines
-        for (let y = 1; y < CONFIG.PIT_HEIGHT; y++) {
-            const points = [
-                new THREE.Vector3(-offset, y - offset, bottomZ),
-                new THREE.Vector3(CONFIG.PIT_WIDTH - offset, y - offset, bottomZ)
-            ];
-            this.envGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), floorMat));
-        }
     }
 
     initDepthBar() {
@@ -548,62 +593,28 @@ class Game {
     }
 
     updateDepthBar() {
-        // Assume layer 0 is closest to camera (index 0 in grid)?
-        // Wait, grid[0] is top (closest to camera, where we spawn).
-        // Grid[depth-1] is bottom.
-        // The display is column-reverse, so bottom of div is "first" child.
-        // We want the bottom of the pit to be at the bottom of the bar.
-        // So index 0 of depthLayers (bottom of HUD) should correspond to Pit Depth - 1?
-        // Or should index 0 (top of pit) be at top of HUD?
-        // Usually, tetris-like, things fall down.
-        // Bottom of the pit (grid[depth-1]) should be at the bottom of the screen.
-        // So array index `depth-1` is bottom.
-        // Our flex-direction is column-reverse, so child 0 is at bottom.
-        // So child 0 should represent grid[depth-1].
-
-        // Equation: ui_index = (depth - 1) - z;
-        // Wait, if z=depth-1 (bottom), ui_index = 0. Correct.
-
         for (let z = 0; z < CONFIG.PIT_DEPTH; z++) {
-            // Check if layer z has any block
             let hasBlock = false;
             for (let x = 0; x < CONFIG.PIT_WIDTH; x++) {
                 for (let y = 0; y < CONFIG.PIT_HEIGHT; y++) {
-                    if (this.pit.grid[z][x][y] !== null) {
-                        hasBlock = true;
-                        break;
-                    }
+                    if (this.pit.grid[z][x][y]) { hasBlock = true; break; }
                 }
                 if (hasBlock) break;
             }
-
-            // Map grid Z to UI element
-            // grid[depth-1] (deepest) -> UI Bottom
-            // grid[0] (top) -> UI Top
-            // If UI uses flex-col-reverse:
-            // Child 0 is bottom. Child N is top.
-            // grid[depth-1] should map to Child 0.
-            // grid[0] should map to Child depth-1.
-
             const uiIndex = (CONFIG.PIT_DEPTH - 1) - z;
             const el = this.depthLayers[uiIndex];
-
             if (hasBlock) {
-                // Use the same color as the layer
                 const colorHex = LAYER_COLORS[z % LAYER_COLORS.length];
-                const hexString = '#' + colorHex.toString(16).padStart(6, '0');
-                el.style.backgroundColor = hexString;
+                el.style.backgroundColor = '#' + colorHex.toString(16).padStart(6, '0');
                 el.classList.add('filled');
             } else {
-                el.style.backgroundColor = 'transparent';
-                el.classList.remove('filled');
+                el.style.backgroundColor = 'transparent'; el.classList.remove('filled');
             }
         }
     }
 
     restart() {
         if (this.activeBlock) this.activeBlock.destroy();
-
         if (this.pit) {
             this.pit.meshes.forEach(m => {
                 this.scene.remove(m);
@@ -611,103 +622,59 @@ class Game {
                 if (m.material) m.material.dispose();
             });
         }
-
         this.pit = new Pit(CONFIG.PIT_WIDTH, CONFIG.PIT_HEIGHT, CONFIG.PIT_DEPTH);
-        this.score = 0;
-        // this.level = 1; // Removed to keep user selected level
-        this.cubesPlayed = 0;
-        this.gameOver = false;
-        this.paused = false;
+        this.score = 0; this.cubesPlayed = 0; this.gameOver = false; this.paused = false;
         document.getElementById('pauseIndicator').classList.remove('show');
-        this.lastFall = 0;
-
-        this.drawEnvironment();
-        this.spawnBlock();
-        this.updateHUD();
-        this.updateDepthBar(); // Initialize empty
-
+        this.lastFall = performance.now();
+        this.lineMaterials = [];
+        this.drawEnvironment(); this.spawnBlock(); this.updateHUD(); this.updateDepthBar();
         document.getElementById('gameOverScreen').classList.remove('show');
     }
 
     spawnBlock() {
         this.activeBlock = new Block(this.scene, this.pit);
-
-        // Immediate collision check logic updated:
-        // We only fail if the block physically overlaps the grid.
-        // Since we spawn at negative Z, this usually passes unless the entrance is totally blocked.
         const positions = this.activeBlock.getCalculatedPositions();
         for (const p of positions) {
-            if (!this.pit.isValidAndEmpty(p.x, p.y, p.z)) {
-                this.endGame();
-                return;
-            }
+            if (!this.pit.isValidAndEmpty(p.x, p.y, p.z)) { this.endGame(); return; }
         }
     }
 
     lockBlock() {
-        // FIX: Check for overflow before clearing lines
-        // If any part of the block is still outside (Z < 0), it's Game Over
         const positions = this.activeBlock.getCalculatedPositions();
         let overflow = false;
-        for (const p of positions) {
-            if (p.z < 0) {
-                overflow = true;
-                break;
-            }
-        }
+        for (const p of positions) if (p.z < 0) { overflow = true; break; }
 
         this.pit.placeBlock(this.activeBlock);
         this.activeBlock.destroy();
         this.activeBlock = null;
 
-        if (overflow) {
-            this.endGame();
-            return;
-        }
+        if (overflow) { this.endGame(); return; }
 
         const cleared = this.pit.clearLayers();
         if (cleared > 0) {
             this.score += Math.pow(cleared, 2) * 100 * this.level;
             this.rebuildPitMeshes();
-        } else {
-            this.score += 10 * this.level;
-        }
+        } else { this.score += 10 * this.level; }
 
-        this.cubesPlayed++;
-
-        this.updateHUD();
-        this.updateDepthBar(); // Update UI
-        this.spawnBlock();
+        this.cubesPlayed++; this.updateHUD(); this.updateDepthBar(); this.spawnBlock();
     }
 
     rebuildPitMeshes() {
         this.pit.meshes.forEach(m => this.scene.remove(m));
         this.pit.meshes = [];
-
         for (let z = 0; z < this.pit.depth; z++) {
             for (let x = 0; x < this.pit.width; x++) {
                 for (let y = 0; y < this.pit.height; y++) {
                     const cell = this.pit.grid[z][x][y];
                     if (cell) {
-                        // Pass the stored color
-                        // We need to use createStaticMeshAt but static...
-                        // We can just inline it or call a static helper.
-                        // Since Block has the method, we can just replicate it here or make it static.
-                        // Let's just create the mesh here directly.
                         const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-
-                        // Solid
                         const material = new THREE.MeshLambertMaterial({ color: cell.color });
                         const mesh = new THREE.Mesh(geometry, material);
-
-                        // White Outline, thicker
+                        // White Outline, thicker (2x)
                         const edges = new THREE.EdgesGeometry(geometry);
-                        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
-                        const wireframe = new THREE.LineSegments(edges, lineMat);
-                        mesh.add(wireframe);
-
+                        const thickWireframe = createThickLineSegments(edges, 0xffffff, 2);
+                        mesh.add(thickWireframe);
                         mesh.position.set(x, y, -z);
-
                         this.scene.add(mesh);
                         this.pit.addMesh(mesh);
                     }
@@ -717,58 +684,35 @@ class Game {
     }
 
     onKeyDown(e) {
-        // Allow ESC to return to main menu at any time
         if (e.key === 'Escape') {
-            document.getElementById('startScreen').style.display = 'flex';
-            this.isRunning = false;
-            this.paused = false;
-            document.getElementById('pauseIndicator').classList.remove('show');
+            const ss = document.getElementById('startScreen');
+            if (ss.style.display === 'flex') { ss.style.display = 'none'; this.isRunning = true; this.animate(); }
+            else { ss.style.display = 'flex'; this.isRunning = false; }
             return;
         }
-
         if (this.gameOver) return;
         const k = e.key.toLowerCase();
-
-        if (k === 'p') {
-            this.paused = !this.paused;
-            document.getElementById('pauseIndicator').classList.toggle('show', this.paused);
-        }
-        if (this.paused) return;
-
-        if (!this.activeBlock) return;
+        if (k === 'p') { this.paused = !this.paused; document.getElementById('pauseIndicator').classList.toggle('show', this.paused); }
+        if (this.paused || !this.activeBlock) return;
 
         if (k === 'arrowleft') this.activeBlock.tryMove(-1, 0, 0);
         if (k === 'arrowright') this.activeBlock.tryMove(1, 0, 0);
         if (k === 'arrowup') this.activeBlock.tryMove(0, 1, 0);
         if (k === 'arrowdown') this.activeBlock.tryMove(0, -1, 0);
 
-        if (k === 'q') { console.log('Rotate X'); this.activeBlock.rotate('x'); }
-        if (k === 'w') { console.log('Rotate Y'); this.activeBlock.rotate('y'); }
-        if (k === 'e') { console.log('Rotate Z'); this.activeBlock.rotate('z'); }
+        if (k === 'a' || k === 'q') this.activeBlock.rotate('x');
+        if (k === 's' || k === 'w') this.activeBlock.rotate('y');
+        if (k === 'd' || k === 'e') this.activeBlock.rotate('z');
 
-        // Alternative Rotation Keys (A, S, D)
-        if (k === 'a') { console.log('Rotate X (Alt)'); this.activeBlock.rotate('x'); }
-        if (k === 's') { console.log('Rotate Y (Alt)'); this.activeBlock.rotate('y'); }
-        if (k === 'd') { console.log('Rotate Z (Alt)'); this.activeBlock.rotate('z'); }
-
-        if (k === ' ') {
-            this.activeBlock.drop();
-            this.lockBlock();
-        }
+        if (k === ' ') { this.activeBlock.drop(); this.lockBlock(); }
     }
 
     update(time) {
         if (this.gameOver || this.paused || !this.activeBlock) return;
-
-        // Speed Formula:
-        // L1: ~5s, L5: ~0.5s
         const speedInterval = Math.max(0.1, 6.125 - (this.level * 1.125));
         const interval = 1000 * speedInterval;
-
         if (time - this.lastFall > interval) {
-            if (!this.activeBlock.tryMove(0, 0, 1)) {
-                this.lockBlock();
-            }
+            if (!this.activeBlock.tryMove(0, 0, 1)) this.lockBlock();
             this.lastFall = time;
         }
     }
@@ -796,20 +740,16 @@ class Game {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const res = new THREE.Vector2(window.innerWidth, window.innerHeight);
+        this.lineMaterials.forEach(m => {
+            if (m.resolution) m.resolution.copy(res);
+        });
     }
 }
 
-// Global Start Function
-window.startGame = function (level) {
-    if (window.gameInstance) {
-        window.gameInstance.start(level);
-    }
-};
-
+window.startGame = function (level) { if (window.gameInstance) window.gameInstance.start(level); };
 window.addEventListener('DOMContentLoaded', () => {
     window.gameInstance = new Game();
-    document.getElementById('restartButton').addEventListener('click', () => {
-        // Reload page to return to difficulty selection
-        location.reload();
-    });
+    document.getElementById('restartButton').addEventListener('click', () => location.reload());
 });
